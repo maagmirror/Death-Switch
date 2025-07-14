@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Verificación de Estado</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .button { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🔐 Verificación de Estado - Death Switch</h2>
+        </div>
+        
+        <p>Hola,</p>
+        
+        <p>Este es un mensaje automático de tu sistema Death Switch para verificar que sigues activo.</p>
+        
+        <p><strong>Fecha de verificación:</strong> {{verificationDate}}</p>
+        <p><strong>Próxima verificación:</strong> {{nextVerificationDate}}</p>
+        
+        <p>Si estás leyendo este mensaje, por favor confirma que sigues vivo haciendo clic en el botón de abajo:</p>
+        
+        <a href="{{verificationUrl}}" class="button">✅ Confirmar que estoy vivo</a>
+        
+        <p><strong>Importante:</strong> Si no confirmas tu estado en los próximos {{expirationHours}} horas, el sistema asumirá que has fallecido y enviará los datos encriptados a tus contactos de emergencia.</p>
+        
+        <div class="footer">
+            <p>Este es un mensaje automático del sistema Death Switch.</p>
+            <p>Si tienes problemas con el enlace, copia y pega esta URL en tu navegador: {{verificationUrl}}</p>
+        </div>
+    </div>
+</body>
+</html>

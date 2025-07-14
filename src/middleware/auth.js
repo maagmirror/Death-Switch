@@ -40,14 +40,17 @@ class AuthMiddleware {
         const session = this.sessions.get(token);
         
         if (!session) {
+            console.log('🔍 Sesión no encontrada para token:', token.substring(0, 8) + '...');
             return false;
         }
 
         if (Date.now() > session.expiresAt) {
+            console.log('⏰ Sesión expirada para usuario:', session.userId);
             this.sessions.delete(token);
             return false;
         }
 
+        console.log('✅ Sesión válida para usuario:', session.userId);
         return true;
     }
 

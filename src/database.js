@@ -113,24 +113,23 @@ class Database {
     }
 
     async updateVerificationStatus(isAlive = true) {
-        const intervalMinutes = process.env.VERIFICATION_INTERVAL_MINUTES || 0;
-        const intervalDays = process.env.VERIFICATION_INTERVAL_DAYS || 7;
-        
-        let timeExpression;
+        const intervalMinutes = Number(process.env.VERIFICATION_INTERVAL_MINUTES) || 0;
+        const intervalDays = Number(process.env.VERIFICATION_INTERVAL_DAYS) || 7;
+        const now = new Date();
+        let nextVerification;
         if (intervalMinutes > 0) {
-            timeExpression = `+${intervalMinutes} minutes`;
+            nextVerification = new Date(now.getTime() + intervalMinutes * 60 * 1000);
         } else {
-            timeExpression = `+${intervalDays} days`;
+            nextVerification = new Date(now.getTime() + intervalDays * 24 * 60 * 60 * 1000);
         }
-        
         await this.run(`
             UPDATE verification_status 
-            SET last_verification = CURRENT_TIMESTAMP,
-                next_verification = datetime('now', '${timeExpression}'),
+            SET last_verification = ?,
+                next_verification = ?,
                 is_alive = ?,
                 verification_count = verification_count + 1
             WHERE id = 1
-        `, [isAlive ? 1 : 0]);
+        `, [now.toISOString(), nextVerification.toISOString(), isAlive ? 1 : 0]);
     }
 
     async saveVerificationToken(token, expiresAt) {

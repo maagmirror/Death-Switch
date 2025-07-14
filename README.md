@@ -47,10 +47,10 @@ Un sistema de verificación y encriptación de datos que envía verificaciones p
    ADMIN_PASSWORD=tu_contraseña_super_segura_aqui
 
    # Configuración de verificación
-   VERIFICATION_INTERVAL_DAYS=7
-   VERIFICATION_INTERVAL_MINUTES=0  # Para testing: usar 1 para verificaciones cada minuto
-   DATA_FOLDER=./encrypted_data
-   DECRYPTION_KEY=tu_clave_super_secreta_aqui
+VERIFICATION_INTERVAL_DAYS=7
+VERIFICATION_INTERVAL_MINUTES=0  # Modo testing se configura desde el panel web
+DATA_FOLDER=./encrypted_data
+DECRYPTION_KEY=tu_clave_super_secreta_aqui
 
    # Configuración SMTP
    SMTP_HOST=smtp.gmail.com
@@ -111,10 +111,10 @@ Abre tu navegador y ve a `http://localhost:3000/login`
 - Si no respondes en 24 horas, se activará el protocolo de emergencia
 
 ### 4. Modo Testing
-- **Para testing rápido**: Configura `VERIFICATION_INTERVAL_MINUTES=1` en el `.env`
 - **Desde el panel**: Usa el botón "Modo Testing" para activar verificaciones cada X minutos
 - **Verificaciones rápidas**: Recibe emails cada 1-60 minutos para testing
-- **Volver a producción**: Desactiva el modo testing desde el panel o cambia `VERIFICATION_INTERVAL_MINUTES=0`
+- **Volver a producción**: Desactiva el modo testing desde el panel
+- **Configuración automática**: El sistema ajusta automáticamente los intervalos sin necesidad de editar el .env
 
 ### 5. Gestión de contactos
 - Los contactos de emergencia recibirán notificaciones automáticas

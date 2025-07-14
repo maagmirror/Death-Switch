@@ -12,7 +12,7 @@ class EmailService {
 
     async initialize() {
         // Configurar transporter
-        this.transporter = nodemailer.createTransporter({
+        this.transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST,
             port: process.env.SMTP_PORT,
             secure: process.env.SMTP_SECURE === 'true',
@@ -196,14 +196,15 @@ class EmailService {
         return await this.transporter.sendMail(mailOptions);
     }
 
-    async sendDeathNotification(contactEmail, lastVerificationDate) {
+    async sendDeathNotification(contactEmail, lastVerificationDate, downloadLink = null) {
         const notificationDate = new Date().toLocaleString('es-ES');
         const decryptionKey = process.env.DECRYPTION_KEY;
 
         const html = this.templates.death_notification({
             lastVerificationDate,
             notificationDate,
-            decryptionKey
+            decryptionKey,
+            downloadLink
         });
 
         const mailOptions = {

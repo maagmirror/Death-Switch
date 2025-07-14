@@ -78,18 +78,21 @@ class VerificationService {
     async checkPendingVerifications() {
         try {
             const status = await this.db.getVerificationStatus();
-            
-            if (!status || status.is_alive) {
+            if (!status) {
                 return;
             }
-
-            // Si no está vivo, verificar si han pasado más de 24 horas
+            // Log extra para debug
+            const intervalMinutes = Number(process.env.VERIFICATION_INTERVAL_MINUTES) || 0;
             const lastVerification = new Date(status.last_verification);
             const now = new Date();
-            const hoursSinceLastVerification = (now - lastVerification) / (1000 * 60 * 60);
-
-            if (hoursSinceLastVerification >= 24) {
-                console.log('⚠️ No se recibió verificación en 24 horas, enviando notificaciones...');
+            let minutesSinceLastVerification = (now - lastVerification) / (1000 * 60);
+            console.log(`[DEBUG] is_alive: ${status.is_alive}, minutos desde última verificación: ${minutesSinceLastVerification.toFixed(2)}`);
+            if (status.is_alive) {
+                return;
+            }
+            // En testing, esperar solo 1 minuto; en producción, 24 horas
+            if ((intervalMinutes > 0 && minutesSinceLastVerification >= 1) || (intervalMinutes === 0 && minutesSinceLastVerification >= 24 * 60)) {
+                console.log('⚠️ No se recibió verificación en el tiempo esperado, enviando notificaciones...');
                 await this.handleDeathScenario();
             }
         } catch (error) {
@@ -159,6 +162,9 @@ class VerificationService {
 
             // Crear archivo ZIP con datos encriptados
             const zipPath = await this.createEncryptedDataZip();
+            const zipName = require('path').basename(zipPath);
+            const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+            const downloadLink = `${baseUrl}/download/${encodeURIComponent(zipName)}`;
 
             // Enviar notificaciones a todos los contactos
             const contactEmails = process.env.CONTACT_EMAILS.split(',').map(email => email.trim());
@@ -166,7 +172,7 @@ class VerificationService {
 
             for (const email of contactEmails) {
                 try {
-                    await this.emailService.sendDeathNotification(email, status.last_verification);
+                    await this.emailService.sendDeathNotification(email, status.last_verification, downloadLink);
                     console.log(`📧 Notificación enviada a: ${email}`);
                 } catch (error) {
                     console.error(`❌ Error enviando notificación a ${email}:`, error);
@@ -208,7 +214,8 @@ class VerificationService {
             // Agregar todos los archivos encriptados
             archive.directory(dataFolder, false, (data) => {
                 // Excluir el propio archivo ZIP
-                return !data.name.endsWith('.zip');
+                if (data.name.endsWith('.zip')) return false;
+                return data;
             });
 
             archive.finalize();

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Notificación de Fallecimiento</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #dc3545; color: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>⚠️ Notificación de Fallecimiento</h2>
+        </div>
+        
+        <p>Estimado/a,</p>
+        
+        <p>Lamentamos informarle que el propietario del sistema Death Switch no ha respondido a las verificaciones periódicas de estado.</p>
+        
+        <p><strong>Última verificación exitosa:</strong> {{lastVerificationDate}}</p>
+        <p><strong>Fecha de la notificación:</strong> {{notificationDate}}</p>
+        
+        <p>Como contacto de emergencia designado, se le ha enviado un archivo ZIP con los datos encriptados del propietario.</p>
+        {{#if downloadLink}}
+        <p><strong>Descargar datos encriptados:</strong> <a href="{{downloadLink}}">Descargar ZIP</a></p>
+        {{/if}}
+        <p><strong>Clave de desencriptación:</strong> {{decryptionKey}}</p>
+        
+        <p>Por favor, siga las instrucciones incluidas en el archivo ZIP para acceder a los datos.</p>
+        
+        <div class="footer">
+            <p>Este es un mensaje automático del sistema Death Switch.</p>
+            <p>Si tiene alguna pregunta, contacte al administrador del sistema.</p>
+        </div>
+    </div>
+</body>
+</html>
