@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación - Death Switch</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+            text-align: center;
+        }
+
+        .verification-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .status-message {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background 0.3s ease;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            background: #1e7e34;
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #28a745;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .info-box h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .countdown {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #dc3545;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Death Switch</h1>
+            <p>Verificación de Estado</p>
+        </div>
+
+        <div class="content">
+            <div id="verificationContent">
+                <div class="verification-icon">✅</div>
+                <div class="status-message">Verificación de Estado</div>
+                
+                <div class="info-box">
+                    <h3>¿Qué es esto?</h3>
+                    <p>Este es un mensaje de verificación automática de tu sistema Death Switch.</p>
+                    <p>Si estás leyendo esto, significa que el sistema necesita confirmar que sigues activo.</p>
+                    <p><strong>Importante:</strong> Si no confirmas tu estado, el sistema asumirá que has fallecido y enviará tus datos encriptados a tus contactos de emergencia.</p>
+                </div>
+
+                <div id="countdown" class="countdown" style="display: none;">
+                    Tiempo restante: <span id="timeLeft">--:--</span>
+                </div>
+
+                <button id="verifyBtn" class="btn" onclick="verifyAlive()">
+                    ✅ Confirmar que estoy vivo
+                </button>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Verificando...</p>
+                </div>
+
+                <div id="alerts"></div>
+            </div>
+
+            <div id="successContent" style="display: none;">
+                <div class="verification-icon">🎉</div>
+                <div class="status-message">¡Verificación Exitosa!</div>
+                
+                <div class="info-box">
+                    <h3>Estado Confirmado</h3>
+                    <p>Has confirmado exitosamente que sigues activo.</p>
+                    <p>El sistema ha sido actualizado y la próxima verificación será en <strong id="nextVerification">--</strong> días.</p>
+                    <p>Puedes cerrar esta ventana con seguridad.</p>
+                </div>
+
+                <button class="btn" onclick="window.close()">
+                    Cerrar Ventana
+                </button>
+            </div>
+
+            <div id="errorContent" style="display: none;">
+                <div class="verification-icon">❌</div>
+                <div class="status-message">Error en la Verificación</div>
+                
+                <div class="info-box">
+                    <h3>Problema Detectado</h3>
+                    <p id="errorMessage">Ha ocurrido un error durante la verificación.</p>
+                    <p>Por favor, intenta nuevamente o contacta al administrador del sistema.</p>
+                </div>
+
+                <button class="btn" onclick="location.reload()">
+                    Intentar Nuevamente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = null;
+        let countdownInterval = null;
+
+        // Obtener token de la URL
+        function getTokenFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('token');
+        }
+
+        // Mostrar alerta
+        function showAlert(message, type) {
+            const alerts = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            alerts.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Verificar que estás vivo
+        async function verifyAlive() {
+            if (!token) {
+                showAlert('Token de verificación no válido', 'error');
+                return;
+            }
+
+            const verifyBtn = document.getElementById('verifyBtn');
+            const loading = document.getElementById('loading');
+            
+            verifyBtn.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token: token })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess();
+                } else {
+                    showError(data.message || 'Error en la verificación');
+                }
+            } catch (error) {
+                showError('Error de conexión: ' + error.message);
+            } finally {
+                verifyBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        // Mostrar éxito
+        function showSuccess() {
+            document.getElementById('verificationContent').style.display = 'none';
+            document.getElementById('successContent').style.display = 'block';
+            
+            // Calcular próxima verificación
+            const nextVerification = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            document.getElementById('nextVerification').textContent = '7';
+            
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+        }
+
+        // Mostrar error
+        function showError(message) {
+            document.getElementById('verificationContent').style.display = 'none';
+            document.getElementById('errorContent').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+            
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+        }
+
+        // Iniciar countdown
+        function startCountdown() {
+            const countdown = document.getElementById('countdown');
+            const timeLeft = document.getElementById('timeLeft');
+            
+            countdown.style.display = 'block';
+            
+            // Simular countdown de 24 horas (para demo, usar 5 minutos)
+            let timeRemaining = 5 * 60; // 5 minutos en segundos
+            
+            function updateCountdown() {
+                const hours = Math.floor(timeRemaining / 3600);
+                const minutes = Math.floor((timeRemaining % 3600) / 60);
+                const seconds = timeRemaining % 60;
+                
+                timeLeft.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(countdownInterval);
+                    showError('Tiempo de verificación expirado');
+                }
+                
+                timeRemaining--;
+            }
+            
+            updateCountdown();
+            countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        // Inicializar página
+        document.addEventListener('DOMContentLoaded', function() {
+            token = getTokenFromUrl();
+            
+            if (!token) {
+                showError('Token de verificación no válido o faltante');
+                return;
+            }
+            
+            // Iniciar countdown
+            startCountdown();
+            
+            // Mostrar información del token
+            console.log('Token de verificación:', token);
+        });
+
+        // Prevenir que se cierre la ventana accidentalmente
+        window.addEventListener('beforeunload', function(e) {
+            if (document.getElementById('verificationContent').style.display !== 'none') {
+                e.preventDefault();
+                e.returnValue = '¿Estás seguro de que quieres cerrar la ventana sin verificar?';
+            }
+        });
+    </script>
+</body>
+</html> 
