@@ -29,7 +29,8 @@ class Database {
                 last_verification DATETIME DEFAULT CURRENT_TIMESTAMP,
                 next_verification DATETIME,
                 is_alive BOOLEAN DEFAULT 1,
-                verification_count INTEGER DEFAULT 0
+                verification_count INTEGER DEFAULT 0,
+                is_dead BOOLEAN DEFAULT 0
             )`,
             
             `CREATE TABLE IF NOT EXISTS encrypted_files (
@@ -158,6 +159,15 @@ class Database {
 
     async getEncryptedFiles() {
         return await this.all('SELECT * FROM encrypted_files ORDER BY created_at DESC');
+    }
+
+    async markAsDead() {
+        await this.run(`UPDATE verification_status SET is_dead = 1 WHERE id = 1`);
+    }
+
+    async isDead() {
+        const row = await this.get('SELECT is_dead FROM verification_status WHERE id = 1');
+        return row && row.is_dead === 1;
     }
 
     async close() {

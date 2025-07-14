@@ -77,6 +77,10 @@ class VerificationService {
 
     async checkPendingVerifications() {
         try {
+            if (await this.db.isDead()) {
+                // Ya se notificó muerte, no hacer nada
+                return;
+            }
             const status = await this.db.getVerificationStatus();
             if (!status) {
                 return;
@@ -94,6 +98,7 @@ class VerificationService {
             if ((intervalMinutes > 0 && minutesSinceLastVerification >= 1) || (intervalMinutes === 0 && minutesSinceLastVerification >= 24 * 60)) {
                 console.log('⚠️ No se recibió verificación en el tiempo esperado, enviando notificaciones...');
                 await this.handleDeathScenario();
+                await this.db.markAsDead();
             }
         } catch (error) {
             console.error('❌ Error verificando estado pendiente:', error);
