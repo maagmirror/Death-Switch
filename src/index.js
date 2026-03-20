@@ -22,6 +22,18 @@ app.use(cookieParser());
 // Inicializar autenticación
 const auth = new AuthMiddleware();
 
+// GET / sin sesión → login (defensa extra: static/proxy/CDN no deben servir el panel)
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path !== '/') {
+    return next();
+  }
+  const token = req.cookies?.sessionToken || req.headers['x-session-token'];
+  if (token && auth.verifySession(token)) {
+    return next();
+  }
+  return res.redirect(302, '/login');
+});
+
 // Inicializar servicios
 const db = new Database();
 const emailService = new EmailService();
@@ -35,6 +47,7 @@ async function initializeApp() {
     await fs.ensureDir('./original_files');
     await fs.ensureDir('./data');
     await fs.ensureDir('./public');
+    await fs.ensureDir('./views');
     await fs.ensureDir('./templates');
 
     console.log('✅ Directorios creados correctamente');
@@ -147,7 +160,7 @@ app.get('/emergency/download/:token', async (req, res) => {
   }
 });
 
-const panelHtml = path.join(__dirname, '../public/dashboard.html');
+const panelHtml = path.join(__dirname, '../views/dashboard.html');
 
 app.get('/', requireAuth, (req, res) => {
   res.sendFile(panelHtml);

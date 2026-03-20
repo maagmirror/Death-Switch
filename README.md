@@ -172,9 +172,11 @@ death-switch/
 │       ├── emailService.js   # Servicio de email
 │       ├── verificationService.js # Verificaciones periódicas
 │       └── encryptionService.js   # Encriptación/desencriptación
+├── views/
+│   └── dashboard.html        # Panel (fuera de /public para no exponerlo por static)
 ├── public/
-│   ├── dashboard.html        # Panel (solo vía rutas con sesión)
-│   └── verify.html           # Página de verificación
+│   ├── login.html
+│   └── verify.html           # Página de verificación pública
 ├── templates/                # Templates de email
 ├── encrypted_data/           # Archivos encriptados
 ├── data/                     # Base de datos SQLite
@@ -247,6 +249,14 @@ curl -X POST http://localhost:3000/api/verify -H "Content-Type: application/json
 - Verificar credenciales en `.env`
 - Asegurar que la autenticación de 2 factores esté activada
 - Verificar que el puerto SMTP sea correcto
+
+### `550 relay not permitted` / rechazo del destinatario
+
+El servidor SMTP aceptó la conexión pero **no permite enviar a ese destino** (p. ej. a Gmail desde un SMTP de hosting). Revisá:
+
+- **`SMTP_FROM`** (o el remitente por defecto): muchos proveedores exigen que coincida con la cuenta autenticada (`SMTP_USER`).
+- **Gmail**: contraseña de **aplicación**, no la clave normal.
+- **Hosting**: a veces solo dejan relay a buzones del **mismo dominio**; para Gmail usa el SMTP de Gmail o un servicio tipo SendGrid/Resend.
 
 ### Archivos no se encriptan
 

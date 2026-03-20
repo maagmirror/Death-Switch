@@ -12,7 +12,7 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Directorios que usa la app (también los crea al iniciar; útiles para volúmenes)
-RUN mkdir -p data encrypted_data original_files tmp_uploads templates public
+RUN mkdir -p data encrypted_data original_files tmp_uploads templates public views
 
 ENV NODE_ENV=production
 ENV PORT=3000

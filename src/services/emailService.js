@@ -4,6 +4,27 @@ const fs = require('fs-extra');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+function formatSmtpError(err) {
+    if (!err) {
+        return 'Error SMTP desconocido';
+    }
+    const msg = `${err.response || ''} ${err.message || ''}`;
+    const code = err.responseCode;
+    if (
+        code === 550 ||
+        /\b550\b/.test(msg) ||
+        /relay not permitted/i.test(msg) ||
+        err.code === 'EENVELOPE'
+    ) {
+        return (
+            'SMTP rechazó el envío (550 relay). Revisá SMTP_USER/SMTP_PASS, que SMTP_FROM sea una dirección ' +
+            'autorizada en tu proveedor (a menudo debe coincidir con la cuenta SMTP), y que uses contraseña de ' +
+            'aplicación en Gmail. Si usás el SMTP de un hosting, puede que solo permita enviar a buzones del mismo dominio.'
+        );
+    }
+    return err.message || String(err);
+}
+
 function formatDateTimeEs(value) {
     if (value == null || value === '') {
         return '—';
@@ -64,6 +85,16 @@ class EmailService {
         console.log(
             `📧 Correo enviado → ${Array.isArray(to) ? to.join(', ') : to}${mid ? ` [${mid}]` : ''}`
         );
+    }
+
+    async sendMailWithLog(mailOptions) {
+        try {
+            const info = await this.transporter.sendMail(mailOptions);
+            this.logSendResult(info, mailOptions.to);
+            return info;
+        } catch (err) {
+            throw new Error(formatSmtpError(err));
+        }
     }
 
     async loadTemplates() {
@@ -258,9 +289,7 @@ class EmailService {
             html: html
         };
 
-        const info = await this.transporter.sendMail(mailOptions);
-        this.logSendResult(info, mailOptions.to);
-        return info;
+        return await this.sendMailWithLog(mailOptions);
     }
 
     async sendDeathNotification(contactEmail, lastVerificationDate, downloadLink = null, zipPath = null) {
@@ -292,9 +321,7 @@ class EmailService {
                 : []
         };
 
-        const info = await this.transporter.sendMail(mailOptions);
-        this.logSendResult(info, contactEmail);
-        return info;
+        return await this.sendMailWithLog(mailOptions);
     }
 
     async sendContactInfoEmail(contactEmail) {
@@ -312,9 +339,7 @@ class EmailService {
             html: html
         };
 
-        const info = await this.transporter.sendMail(mailOptions);
-        this.logSendResult(info, contactEmail);
-        return info;
+        return await this.sendMailWithLog(mailOptions);
     }
 
     async sendToAllContacts(template, data) {
@@ -346,7 +371,7 @@ class EmailService {
             html: html
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.sendMailWithLog(mailOptions);
     }
 }
 
