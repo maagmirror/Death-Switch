@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static('public'));
+// express.static va más abajo: si va primero, sirve index.html en / sin pasar por login
 
 // Inicializar autenticación
 const auth = new AuthMiddleware();
@@ -130,7 +130,7 @@ app.get('/emergency/download/:token', async (req, res) => {
       return res
         .status(404)
         .send(
-          'Este enlace no es válido o ha caducado. Si necesitás ayuda, contactá a quien administraba el sistema. xd',
+          'Este enlace no es válido o ha caducado. Si necesitás ayuda, contactá a quien administraba el sistema.',
         );
     }
     const dataFolder = process.env.DATA_FOLDER || './encrypted_data';
@@ -147,17 +147,14 @@ app.get('/emergency/download/:token', async (req, res) => {
   }
 });
 
-// Rutas protegidas
+const panelHtml = path.join(__dirname, '../public/dashboard.html');
+
 app.get('/', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(panelHtml);
 });
 
-// Proteger todos los archivos estáticos excepto login y verify
-app.use('/public', (req, res, next) => {
-  if (req.path === '/login.html' || req.path === '/verify.html') {
-    return next();
-  }
-  requireAuth(req, res, next);
+app.get('/dashboard.html', requireAuth, (req, res) => {
+  res.sendFile(panelHtml);
 });
 
 // Ruta protegida para descargar ZIPs encriptados
@@ -347,6 +344,13 @@ app.post('/api/toggle-testing', requireAuth, async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// Estáticos (login.html, verify.html, etc.) — sin index automático en / para no saltarse el login
+app.use(
+  express.static('public', {
+    index: false,
+  }),
+);
 
 // Ruta catch-all protegida: si no está autenticado, redirige a /login
 app.get('*', (req, res) => {

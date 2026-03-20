@@ -173,7 +173,7 @@ death-switch/
 │       ├── verificationService.js # Verificaciones periódicas
 │       └── encryptionService.js   # Encriptación/desencriptación
 ├── public/
-│   ├── index.html            # Panel de control
+│   ├── dashboard.html        # Panel (solo vía rutas con sesión)
 │   └── verify.html           # Página de verificación
 ├── templates/                # Templates de email
 ├── encrypted_data/           # Archivos encriptados
