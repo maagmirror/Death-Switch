@@ -1,0 +1,25 @@
+# Volúmenes nombrados: la BD y los archivos del usuario sobreviven a rebuilds y nuevas imágenes.
+# Actualizar solo la app: docker compose build --no-cache && docker compose up -d
+services:
+  death-switch:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Rutas fijas dentro del contenedor (coinciden con los volúmenes)
+      DB_PATH: /app/data/death_switch.db
+      DATA_FOLDER: /app/encrypted_data
+    volumes:
+      - death_switch_data:/app/data
+      - death_switch_encrypted:/app/encrypted_data
+      - death_switch_originals:/app/original_files
+      - death_switch_tmp:/app/tmp_uploads
+
+volumes:
+  death_switch_data:
+  death_switch_encrypted:
+  death_switch_originals:
+  death_switch_tmp:

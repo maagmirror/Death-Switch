@@ -36,7 +36,7 @@ Un sistema de verificación y encriptación de datos que envía verificaciones p
 3. **Configurar variables de entorno**
 
    ```bash
-   cp env.example .env
+   cp .env.example .env
    ```
 
    Editar el archivo `.env` con tu configuración:
@@ -86,16 +86,41 @@ Un sistema de verificación y encriptación de datos que envía verificaciones p
 
 ### Docker
 
+La imagen **no** incluye `.env` (está ignorado en el build). Pasá variables con `--env-file` o `-e`. El punto de entrada es `node src/index.js`.
+
+**Persistencia (recomendado):** montá volúmenes en `data` (SQLite), `encrypted_data`, `original_files` y `tmp_uploads`. Así, al publicar una imagen nueva o hacer `docker build`, **no se pierden** la base ni los archivos del usuario.
+
+#### Docker Compose (volúmenes nombrados)
+
+```bash
+cp .env.example .env
+# Editar .env (BASE_URL, secretos, SMTP, etc.). En compose, DB_PATH y DATA_FOLDER se fijan a /app/...
+docker compose up -d --build
+```
+
+**Actualizar solo el código** (misma BD y mismos archivos):
+
+```bash
+git pull
+docker compose build --no-cache
+docker compose up -d
+```
+
+Los volúmenes `death_switch_*` se conservan entre builds salvo que ejecutes `docker compose down -v` (el flag `-v` borra volúmenes).
+
+#### docker run manual
+
 ```bash
 docker build -t death-switch .
 docker run --rm -p 3000:3000 --env-file .env \
+  -e DB_PATH=/app/data/death_switch.db \
+  -e DATA_FOLDER=/app/encrypted_data \
   -v death-switch-data:/app/data \
   -v death-switch-enc:/app/encrypted_data \
   -v death-switch-orig:/app/original_files \
+  -v death-switch-tmp:/app/tmp_uploads \
   death-switch
 ```
-
-La imagen **no** incluye `.env` (está ignorado en el build). Pasá variables con `--env-file` o `-e`. El punto de entrada es `node src/index.js`.
 
 ## 📧 Configuración de Email
 

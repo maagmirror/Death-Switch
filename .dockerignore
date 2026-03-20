@@ -6,7 +6,10 @@ npm-debug.log*
 
 # No meter secretos en la imagen; pasalos con docker run --env-file o -e
 .env
-.env.*
+.env.local
+.env.production
+.env.development
+# .env.example sí puede ir en la imagen (solo plantilla); no uses secretos ahí
 
 # Datos locales (montá volúmenes en prod)
 data
