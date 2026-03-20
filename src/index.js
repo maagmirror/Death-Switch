@@ -30,258 +30,347 @@ const encryptionService = new EncryptionService();
 
 // Crear directorios necesarios
 async function initializeApp() {
-    try {
-        await fs.ensureDir(process.env.DATA_FOLDER || './encrypted_data');
-        await fs.ensureDir('./data');
-        await fs.ensureDir('./public');
-        await fs.ensureDir('./templates');
-        
-        console.log('✅ Directorios creados correctamente');
-        
-        // Inicializar base de datos
-        await db.initialize();
-        console.log('✅ Base de datos inicializada');
-        
-        // Inicializar servicios
-        await emailService.initialize();
-        console.log('✅ Servicio de email inicializado');
-        
-        // Iniciar verificación periódica
-        verificationService.startPeriodicVerification();
-        console.log('✅ Verificación periódica iniciada');
-        
-        // Limpiar sesiones expiradas cada hora
-        setInterval(() => {
-            auth.cleanupExpiredSessions();
-        }, 60 * 60 * 1000);
-        console.log('✅ Limpiador de sesiones iniciado');
-        
-    } catch (error) {
-        console.error('❌ Error inicializando la aplicación:', error);
-        process.exit(1);
+  try {
+    await fs.ensureDir(process.env.DATA_FOLDER || './encrypted_data');
+    await fs.ensureDir('./original_files');
+    await fs.ensureDir('./data');
+    await fs.ensureDir('./public');
+    await fs.ensureDir('./templates');
+
+    console.log('✅ Directorios creados correctamente');
+
+    // Inicializar base de datos
+    await db.initialize();
+    console.log('✅ Base de datos inicializada');
+
+    // Inicializar servicios
+    await emailService.initialize();
+    console.log('✅ Servicio de email inicializado');
+
+    verificationService.startPeriodicVerification();
+    console.log('✅ Verificación periódica iniciada');
+
+    await db.alignNextVerificationForTestMode();
+
+    const vstatus = await db.getVerificationStatus();
+    if (vstatus) {
+      console.log(
+        `📅 Próximo envío automático de verificación (next_verification): ${vstatus.next_verification}`
+      );
+      console.log(
+        `   💡 Para probar MailHog/SMTP al instante (sin esperar): login en el panel → “Forzar verificación” o POST /api/force-verification`
+      );
+      console.log(
+        `   📬 MailHog: interfaz web suele ser http://localhost:8025 (SMTP en el puerto del .env, ej. 1025)`
+      );
     }
+
+    setImmediate(() => {
+      verificationService.performVerification().catch((err) => {
+        console.error('❌ Error en comprobación inicial de verificación:', err);
+      });
+    });
+
+    // Limpiar sesiones expiradas cada hora
+    setInterval(
+      () => {
+        auth.cleanupExpiredSessions();
+      },
+      60 * 60 * 1000,
+    );
+    console.log('✅ Limpiador de sesiones iniciado');
+  } catch (error) {
+    console.error('❌ Error inicializando la aplicación:', error);
+    process.exit(1);
+  }
 }
 
 // Middleware de autenticación
 const requireAuth = (req, res, next) => {
-    const token = req.cookies?.sessionToken || req.headers['x-session-token'];
-    
-    if (!token || !auth.verifySession(token)) {
-        console.log('🚫 Acceso denegado a ruta protegida:', req.path);
-        if (req.xhr || req.path.startsWith('/api/')) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'No autorizado',
-                redirect: '/login'
-            });
-        }
-        return res.redirect('/login');
+  const token = req.cookies?.sessionToken || req.headers['x-session-token'];
+
+  if (!token || !auth.verifySession(token)) {
+    console.log('🚫 Acceso denegado a ruta protegida:', req.path);
+    if (req.xhr || req.path.startsWith('/api/')) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autorizado',
+        redirect: '/login',
+      });
     }
-    next();
+    return res.redirect('/login');
+  }
+  next();
 };
 
 const requireGuest = (req, res, next) => {
-    const token = req.cookies?.sessionToken || req.headers['x-session-token'];
-    
-    if (token && auth.verifySession(token)) {
-        console.log('🔄 Usuario ya autenticado, redirigiendo a panel');
-        return res.redirect('/');
-    }
-    next();
+  const token = req.cookies?.sessionToken || req.headers['x-session-token'];
+
+  if (token && auth.verifySession(token)) {
+    console.log('🔄 Usuario ya autenticado, redirigiendo a panel');
+    return res.redirect('/');
+  }
+  next();
 };
 
 // Rutas públicas
 app.get('/login', requireGuest, (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/login.html'));
+  res.sendFile(path.join(__dirname, '../public/login.html'));
 });
 
 app.get('/verify', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/verify.html'));
+  res.sendFile(path.join(__dirname, '../public/verify.html'));
+});
+
+/** Descarga pública para contactos de emergencia (token de un solo uso por evento) */
+app.get('/emergency/download/:token', async (req, res) => {
+  try {
+    const row = await db.getValidEmergencyDownloadToken(req.params.token);
+    if (!row) {
+      return res
+        .status(404)
+        .send(
+          'Este enlace no es válido o ha caducado. Si necesitás ayuda, contactá a quien administraba el sistema. xd',
+        );
+    }
+    const dataFolder = process.env.DATA_FOLDER || './encrypted_data';
+    const filePath = path.join(dataFolder, row.filename);
+    if (!(await fs.pathExists(filePath))) {
+      return res
+        .status(404)
+        .send('El archivo ya no está disponible en el servidor.');
+    }
+    res.download(filePath, row.filename);
+  } catch (error) {
+    console.error('❌ Error descarga de emergencia:', error);
+    res.status(500).send('No se pudo completar la descarga.');
+  }
 });
 
 // Rutas protegidas
 app.get('/', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // Proteger todos los archivos estáticos excepto login y verify
 app.use('/public', (req, res, next) => {
-    if (req.path === '/login.html' || req.path === '/verify.html') {
-        return next();
-    }
-    requireAuth(req, res, next);
+  if (req.path === '/login.html' || req.path === '/verify.html') {
+    return next();
+  }
+  requireAuth(req, res, next);
 });
 
 // Ruta protegida para descargar ZIPs encriptados
 app.get('/download/:filename', requireAuth, async (req, res) => {
-    const { filename } = req.params;
-    if (!filename.endsWith('.zip')) {
-        return res.status(400).send('Solo se permiten archivos ZIP');
-    }
-    const filePath = path.join(process.env.DATA_FOLDER || './encrypted_data', filename);
-    if (!await fs.pathExists(filePath)) {
-        return res.status(404).send('Archivo no encontrado');
-    }
-    res.download(filePath);
+  const { filename } = req.params;
+  if (!filename.endsWith('.zip')) {
+    return res.status(400).send('Solo se permiten archivos ZIP');
+  }
+  const filePath = path.join(
+    process.env.DATA_FOLDER || './encrypted_data',
+    filename,
+  );
+  if (!(await fs.pathExists(filePath))) {
+    return res.status(404).send('Archivo no encontrado');
+  }
+  res.download(filePath);
 });
 
 // API pública para verificar que estás vivo
 app.post('/api/verify', async (req, res) => {
-    try {
-        const { token } = req.body;
-        const result = await verificationService.verifyAlive(token);
-        res.json({ success: true, message: 'Verificación exitosa' });
-    } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
-    }
+  try {
+    const { token } = req.body;
+    const result = await verificationService.verifyAlive(token);
+    res.json({ success: true, message: 'Verificación exitosa' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
 });
 
 // API de autenticación
 app.post('/api/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        
-        // Verificar credenciales (configuradas en .env)
-        const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-        
-        console.log('🔐 Intento de login:', { 
-            username, 
-            expectedUsername: adminUsername,
-            passwordProvided: !!password,
-            expectedPassword: adminPassword 
-        });
-        
-        if (username === adminUsername && password === adminPassword) {
-            const token = auth.createSession(username);
-            
-            // Configurar cookie
-            res.cookie('sessionToken', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                maxAge: 24 * 60 * 60 * 1000 // 24 horas
-            });
-            
-            console.log('✅ Login exitoso para usuario:', username);
-            res.json({ success: true, message: 'Login exitoso' });
-        } else {
-            console.log('❌ Login fallido para usuario:', username);
-            res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
-        }
-    } catch (error) {
-        console.error('❌ Error en login:', error);
-        res.status(500).json({ success: false, message: error.message });
+  try {
+    const { username, password } = req.body;
+
+    // Verificar credenciales (configuradas en .env)
+    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+    console.log('🔐 Intento de login:', {
+      username,
+      expectedUsername: adminUsername,
+      passwordProvided: !!password,
+      expectedPassword: adminPassword,
+    });
+
+    if (username === adminUsername && password === adminPassword) {
+      const token = auth.createSession(username);
+
+      // Configurar cookie
+      res.cookie('sessionToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000, // 24 horas
+      });
+
+      console.log('✅ Login exitoso para usuario:', username);
+      res.json({ success: true, message: 'Login exitoso' });
+    } else {
+      console.log('❌ Login fallido para usuario:', username);
+      res
+        .status(401)
+        .json({ success: false, message: 'Credenciales incorrectas' });
     }
+  } catch (error) {
+    console.error('❌ Error en login:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 app.post('/api/logout', (req, res) => {
-    const token = req.cookies?.sessionToken;
-    if (token) {
-        auth.destroySession(token);
-    }
-    
-    res.clearCookie('sessionToken');
-    res.json({ success: true, message: 'Logout exitoso' });
+  const token = req.cookies?.sessionToken;
+  if (token) {
+    auth.destroySession(token);
+  }
+
+  res.clearCookie('sessionToken');
+  res.json({ success: true, message: 'Logout exitoso' });
 });
 
 // APIs protegidas
-app.post('/api/encrypt', requireAuth, upload.array('files'), async (req, res) => {
+app.post(
+  '/api/encrypt',
+  requireAuth,
+  upload.array('files'),
+  async (req, res) => {
     try {
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ success: false, message: 'No se recibieron archivos' });
-        }
-        // Obtener paths temporales de los archivos subidos
-        const filePaths = req.files.map(f => f.path);
-        const result = await encryptionService.encryptFiles(filePaths);
-        // Eliminar archivos temporales después de encriptar
-        const fs = require('fs-extra');
-        for (const file of filePaths) {
-            await fs.remove(file);
-        }
-        res.json({ success: true, data: result });
+      if (!req.files || req.files.length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: 'No se recibieron archivos' });
+      }
+      // Obtener paths temporales de los archivos subidos
+      const filePaths = req.files.map((f) => f.path);
+      const fileEntries = req.files.map((f) => ({
+        path: f.path,
+        originalname: f.originalname,
+      }));
+      const fs = require('fs-extra');
+      const originalDir = './original_files';
+      await fs.ensureDir(originalDir);
+      for (let i = 0; i < req.files.length; i++) {
+        const file = filePaths[i];
+        const originalName = req.files[i].originalname;
+        const dest = path.join(originalDir, originalName);
+        await fs.copy(file, dest);
+      }
+      const result = await encryptionService.encryptFiles(fileEntries, db);
+      for (const file of filePaths) {
+        await fs.remove(file);
+      }
+      res.json({ success: true, data: result });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+      res.status(400).json({ success: false, message: error.message });
     }
-});
+  },
+);
 
 app.get('/api/status', requireAuth, async (req, res) => {
-    try {
-        const status = await verificationService.getStatus();
-        res.json({ success: true, data: status });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+  try {
+    const status = await verificationService.getStatus();
+    res.json({ success: true, data: status });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 app.post('/api/force-verification', requireAuth, async (req, res) => {
-    try {
-        await verificationService.forceVerification();
-        res.json({ success: true, message: 'Verificación forzada enviada' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+  try {
+    await verificationService.forceVerification();
+    res.json({ success: true, message: 'Verificación forzada enviada' });
+  } catch (error) {
+    console.error('❌ /api/force-verification:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 app.post('/api/reset-verification', requireAuth, async (req, res) => {
-    try {
-        await verificationService.resetVerification();
-        res.json({ success: true, message: 'Estado reseteado correctamente' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+  try {
+    await verificationService.resetVerification();
+    res.json({ success: true, message: 'Estado reseteado correctamente' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/revive', requireAuth, async (req, res) => {
+  try {
+    await verificationService.reviveUser();
+    res.json({
+      success: true,
+      message: 'Usuario revivido, verificación reactivada.',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // API para cambiar modo testing
 app.post('/api/toggle-testing', requireAuth, async (req, res) => {
-    try {
-        const { enabled, intervalMinutes } = req.body;
-        const interval = Number(intervalMinutes);
-        if (enabled && (!interval || interval < 1 || interval > 60)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Debes especificar un intervalo en minutos entre 1 y 60' 
-            });
-        }
-        // Reiniciar el servicio de verificación con nueva configuración
-        verificationService.stopPeriodicVerification();
-        if (enabled) {
-            process.env.VERIFICATION_INTERVAL_MINUTES = interval.toString();
-            process.env.VERIFICATION_INTERVAL_DAYS = '0';
-        } else {
-            process.env.VERIFICATION_INTERVAL_MINUTES = '0';
-            process.env.VERIFICATION_INTERVAL_DAYS = '7';
-        }
-        verificationService.startPeriodicVerification();
-        res.json({ 
-            success: true, 
-            message: enabled ? 
-                `Modo testing activado: verificaciones cada ${interval} minutos` : 
-                'Modo producción activado: verificaciones diarias'
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+  try {
+    const { enabled, intervalMinutes } = req.body;
+    const interval = Number(intervalMinutes);
+    if (enabled && (!interval || interval < 1 || interval > 60)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debes especificar un intervalo en minutos entre 1 y 60',
+      });
     }
+    // Reiniciar el servicio de verificación con nueva configuración
+    verificationService.stopPeriodicVerification();
+    if (enabled) {
+      process.env.VERIFICATION_INTERVAL_MINUTES = interval.toString();
+      process.env.VERIFICATION_INTERVAL_DAYS = '0';
+    } else {
+      process.env.VERIFICATION_INTERVAL_MINUTES = '0';
+      process.env.VERIFICATION_INTERVAL_DAYS = '7';
+    }
+    verificationService.startPeriodicVerification();
+    await db.alignNextVerificationForTestMode();
+    res.json({
+      success: true,
+      message: enabled
+        ? `Modo testing activado: verificaciones cada ${interval} minutos`
+        : 'Modo producción activado: verificaciones diarias',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // Ruta catch-all protegida: si no está autenticado, redirige a /login
 app.get('*', (req, res) => {
-    const token = req.cookies?.sessionToken || req.headers['x-session-token'];
-    if (!token || !auth.verifySession(token)) {
-        console.log('🚫 Acceso a URL no definida o protegida sin login:', req.path);
-        return res.redirect('/login');
-    }
-    // Si está autenticado pero la ruta no existe, mostrar 404 o redirigir al panel
-    res.redirect('/');
+  const token = req.cookies?.sessionToken || req.headers['x-session-token'];
+  if (!token || !auth.verifySession(token)) {
+    console.log('🚫 Acceso a URL no definida o protegida sin login:', req.path);
+    return res.redirect('/login');
+  }
+  // Si está autenticado pero la ruta no existe, mostrar 404 o redirigir al panel
+  res.redirect('/');
 });
 
 // Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
-    console.log(`📧 Verificaciones cada ${process.env.VERIFICATION_INTERVAL_DAYS || 7} días`);
-    console.log(`🔐 Datos encriptados en: ${process.env.DATA_FOLDER || './encrypted_data'}`);
-    console.log(`🔑 Credenciales configuradas:`);
-    console.log(`   Usuario: ${process.env.ADMIN_USERNAME || 'admin'}`);
-    console.log(`   Contraseña: ${process.env.ADMIN_PASSWORD || 'admin123'}`);
+  console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
+  console.log(
+    `📧 Verificaciones cada ${process.env.VERIFICATION_INTERVAL_DAYS || 7} días`,
+  );
+  console.log(
+    `🔐 Datos encriptados en: ${process.env.DATA_FOLDER || './encrypted_data'}`,
+  );
+  console.log(`🔑 Credenciales configuradas:`);
+  console.log(`   Usuario: ${process.env.ADMIN_USERNAME || 'admin'}`);
+  console.log(`   Contraseña: ${process.env.ADMIN_PASSWORD || 'admin123'}`);
 });
 
 // Inicializar aplicación
@@ -289,8 +378,8 @@ initializeApp();
 
 // Manejo de señales para cerrar limpiamente
 process.on('SIGINT', async () => {
-    console.log('\n🛑 Cerrando aplicación...');
-    verificationService.stopPeriodicVerification();
-    await db.close();
-    process.exit(0);
-}); 
+  console.log('\n🛑 Cerrando aplicación...');
+  verificationService.stopPeriodicVerification();
+  await db.close();
+  process.exit(0);
+});

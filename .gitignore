@@ -116,3 +116,5 @@ coverage/
 # Build files
 build/
 dist/ 
+
+original_files/*

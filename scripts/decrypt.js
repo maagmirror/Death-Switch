@@ -6,7 +6,8 @@
  */
 
 const crypto = require('crypto');
-const fs = require('fs-extra');
+const fs = require('fs');
+const fsp = require('fs').promises;
 const path = require('path');
 
 class DecryptionUtility {
@@ -19,29 +20,38 @@ class DecryptionUtility {
         return crypto.scryptSync(password, 'salt', 32);
     }
 
-    // Desencriptar un archivo
+    // Desencriptar un archivo (formato: 16 bytes IV + ciphertext, misma lógica que encryptionService)
     async decryptFile(inputPath, outputPath, key) {
         try {
             const derivedKey = this.generateKey(key);
-            
-            const input = fs.createReadStream(inputPath);
+            const iv = Buffer.alloc(16);
+            const fh = await fsp.open(inputPath, 'r');
+            try {
+                const { bytesRead } = await fh.read(iv, 0, 16, 0);
+                if (bytesRead !== 16) {
+                    throw new Error('Archivo demasiado corto o corrupto (falta IV)');
+                }
+            } finally {
+                await fh.close();
+            }
+
+            const decipher = crypto.createDecipheriv(this.algorithm, derivedKey, iv);
+            const input = fs.createReadStream(inputPath, { start: 16 });
             const output = fs.createWriteStream(outputPath);
-            
-            // Leer IV del inicio del archivo
-            const iv = input.read(16);
-            const decipher = crypto.createDecipher(this.algorithm, derivedKey);
-            
-            input.pipe(decipher).pipe(output);
-            
+
             return new Promise((resolve, reject) => {
+                const onErr = (err) => reject(err);
+                input.on('error', onErr);
+                output.on('error', onErr);
+                decipher.on('error', onErr);
                 output.on('finish', () => {
                     resolve({
                         decryptedPath: outputPath,
                         size: fs.statSync(outputPath).size
                     });
                 });
-                
-                output.on('error', reject);
+
+                input.pipe(decipher).pipe(output);
             });
         } catch (error) {
             throw new Error(`Error desencriptando archivo: ${error.message}`);
@@ -50,9 +60,9 @@ class DecryptionUtility {
 
     // Desencriptar múltiples archivos
     async decryptFiles(inputDir, outputDir, key) {
-        await fs.ensureDir(outputDir);
-        
-        const files = await fs.readdir(inputDir);
+        await fsp.mkdir(outputDir, { recursive: true });
+
+        const files = await fsp.readdir(inputDir);
         const encryptedFiles = files.filter(file => file.endsWith('.encrypted'));
         
         console.log(`🔍 Encontrados ${encryptedFiles.length} archivos encriptados`);
@@ -75,7 +85,7 @@ class DecryptionUtility {
     // Verificar integridad de un archivo
     async verifyFile(filePath) {
         try {
-            const stats = await fs.stat(filePath);
+            const stats = await fsp.stat(filePath);
             return {
                 exists: true,
                 size: stats.size,
@@ -120,7 +130,7 @@ Opciones:
 
     try {
         // Verificar que el archivo/directorio existe
-        const inputStats = await fs.stat(inputPath);
+        const inputStats = await fsp.stat(inputPath);
         
         if (inputStats.isFile()) {
             // Desencriptar un archivo individual
@@ -130,7 +140,7 @@ Opciones:
                 console.log(verification);
             } else {
                 const outputPath = path.join(outputDir, path.basename(inputPath).replace('.encrypted', ''));
-                await fs.ensureDir(path.dirname(outputPath));
+                await fsp.mkdir(path.dirname(outputPath), { recursive: true });
                 
                 console.log(`🔓 Desencriptando archivo: ${inputPath}`);
                 const result = await decrypter.decryptFile(inputPath, outputPath, key);
@@ -140,7 +150,7 @@ Opciones:
         } else if (inputStats.isDirectory()) {
             // Desencriptar todos los archivos en el directorio
             if (verifyOnly) {
-                const files = await fs.readdir(inputPath);
+                const files = await fsp.readdir(inputPath);
                 const encryptedFiles = files.filter(file => file.endsWith('.encrypted'));
                 
                 console.log(`📋 Verificando ${encryptedFiles.length} archivos encriptados:`);

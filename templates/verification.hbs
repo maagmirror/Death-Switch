@@ -14,25 +14,25 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>🔐 Verificación de Estado - Death Switch</h2>
+            <h2>🔐 Verificación de estado — Death Switch</h2>
         </div>
         
         <p>Hola,</p>
         
-        <p>Este es un mensaje automático de tu sistema Death Switch para verificar que sigues activo.</p>
+        <p>Este es un mensaje automático de tu sistema Death Switch para verificar que seguís activo.</p>
         
         <p><strong>Fecha de verificación:</strong> {{verificationDate}}</p>
-        <p><strong>Próxima verificación:</strong> {{nextVerificationDate}}</p>
+        <p><strong>Próxima verificación programada (si confirmás ahora):</strong> {{nextVerificationDate}}</p>
         
-        <p>Si estás leyendo este mensaje, por favor confirma que sigues vivo haciendo clic en el botón de abajo:</p>
+        <p>Si estás leyendo este mensaje, confirmá que estás bien haciendo clic en el botón de abajo:</p>
         
-        <a href="{{verificationUrl}}" class="button">✅ Confirmar que estoy vivo</a>
+        <a href="{{verificationUrl}}" class="button">✅ Confirmar que estoy bien</a>
         
-        <p><strong>Importante:</strong> Si no confirmas tu estado en los próximos {{expirationHours}} horas, el sistema asumirá que has fallecido y enviará los datos encriptados a tus contactos de emergencia.</p>
+        <p><strong>Importante:</strong> Si no confirmás tu estado en las próximas {{expirationHours}} horas, el sistema avisará a tus contactos de emergencia y les enviará un enlace (y si el tamaño lo permite, un adjunto) para descargar los documentos que hayas guardado.</p>
         
         <div class="footer">
             <p>Este es un mensaje automático del sistema Death Switch.</p>
-            <p>Si tienes problemas con el enlace, copia y pega esta URL en tu navegador: {{verificationUrl}}</p>
+            <p>Si el botón no funciona, copiá y pegá esta URL en el navegador: {{verificationUrl}}</p>
         </div>
     </div>
 </body>
